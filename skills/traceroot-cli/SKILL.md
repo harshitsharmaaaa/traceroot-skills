@@ -10,29 +10,6 @@ allowed-tools:
   - Bash(traceroot --help)
   - Bash(traceroot status)
   - Bash(traceroot doctor)
-  - Bash(traceroot status *)
-  - Bash(traceroot workspaces list *)
-  - Bash(traceroot projects list *)
-  - Bash(traceroot traces list *)
-  - Bash(traceroot traces get *)
-  - Bash(traceroot sql *)
-  - Bash(traceroot evals list *)
-  - Bash(traceroot evals runs list *)
-  - Bash(traceroot evals runs get *)
-  - Bash(traceroot datasets list *)
-  - Bash(traceroot datasets get *)
-  - Bash(traceroot datasets versions list *)
-  - Bash(traceroot datasets versions get *)
-  - Bash(traceroot detectors list *)
-  - Bash(traceroot detectors get *)
-  - Bash(traceroot findings list *)
-  - Bash(traceroot findings get *)
-  - Bash(traceroot alerts list *)
-  - Bash(traceroot alerts get *)
-  - Bash(traceroot dashboards list *)
-  - Bash(traceroot dashboards get *)
-  - Bash(traceroot widgets get *)
-  - Bash(traceroot widgets data *)
 metadata:
   author: traceroot-ai
   version: "1.0"
@@ -50,8 +27,9 @@ question and leaves the flags to `--help`.
 ## First, establish context
 
 `traceroot status --json` confirms auth and shows the active project. `--project <id>` is global and
-**required with a browser login** — omit it and reads fail as an `auth` error rather than as a
-missing flag. `traceroot projects list --json` finds the id.
+**required with a browser login** — omit it and the server rejects the read with a 400, which the
+CLI reports as `usage` (exit `2`) with a hint naming the flag, not as an auth failure.
+`traceroot projects list --json` finds the id.
 
 ## The smallest command that answers the question
 
@@ -72,14 +50,22 @@ read those rather than guessing a flag name.
 ## Built for agents
 
 - **`--json` is global.** Always pass it; parse the payload instead of scraping the table.
-- **Exit codes are stable** — `2` usage, `3` auth, `4` not found, `5` network, `1` internal — and
-  under `--json` a failure also prints a parseable envelope on stderr carrying the matching string
-  code, one of `usage`, `auth`, `not_found`, `network`, `internal`:
-  `{"error":{"code":"auth","message":"..."}}`. Branch on the code, never on the message: `3` means
-  re-auth or pass `--project`, `5` is retryable, `4` is final.
+- **Exit codes are stable** across these read commands — `2` usage, `3` auth, `4` not found, `5`
+  network, `1` internal — and under `--json` a failure also prints a parseable envelope on stderr
+  carrying the matching string code, one of `usage`, `auth`, `not_found`, `network`, `internal`:
+  `{"error":{"code":"auth","message":"..."}}`. Branch on the code, never on the message: `2` means
+  fix the invocation — a missing `--project` included — `3` means re-auth, `5` is retryable, `4` is
+  final.
 
 ## Guardrails
 
+- **Only three commands are pre-approved, and that is deliberate.** `allowed-tools` patterns
+  cannot constrain flags — a rule ending in ` *` matches whatever text follows, the global
+  `--host`, `--auth-host` and `--env-file` included. The CLI sends the credential it resolves to
+  whichever host it is handed, so a pre-approved wildcard would let one injected line in span data
+  carry an API key or session token to another host with no prompt. Span input and output are
+  exactly where untrusted text arrives, so run the reads the ordinary way and let the user's
+  permission settings decide.
 - **This is not a read-only CLI.** Eighteen commands are `create`, `update` or `delete`, and
   `alerts status` writes too; none of them prompts for confirmation. `allowed-tools` above lists
   reads only, but understand what that list is: it **pre-approves** those commands so they run
@@ -87,11 +73,10 @@ read those rather than guessing a flag name.
   user's own permission settings, and the grant expires at their next message. So the list is the
   boundary you hold yourself to, not one the harness holds for you. When the user wants something
   created, changed or deleted, name the command and let them run it.
-- **Write no files.** Two commands can, and being allowlisted does not make them safe to use that
-  way. `traceroot sql --output <path>` writes the result to that path and overwrites whatever is
-  there, with no prompt and no `--force`; `traceroot sql --file <path>` reads a query from any
-  readable file and sends its contents to the API. Use neither — print the result and let the user
-  redirect it. `traceroot traces export` is left out of the list for the same reason: it writes a
-  directory, and `--force` clears a non-empty one.
+- **Write no files.** Two commands can. `traceroot sql --output <path>` writes the result to that
+  path and overwrites whatever is there, with no prompt and no `--force`; `traceroot sql --file
+  <path>` reads a query from any readable file and sends its contents to the API. Use neither —
+  print the result and let the user redirect it. `traceroot traces export` writes a directory and
+  `--force` clears a non-empty one, so leave that alone too.
 - Verifying a trace you have just instrumented belongs to `traceroot-instrument-repo` and
   `traceroot-quickstart`. Don't repeat it here.
