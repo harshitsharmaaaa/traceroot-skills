@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Runs in CI on every pull request and push to main, and again from the
@@ -105,11 +106,62 @@ if (undeclared.length > 0) {
   failed = true;
 }
 
+// A manifest entry names a directory, but consumers key on the frontmatter
+// `name:` inside that directory's SKILL.md: `npx skills add --skill <name>`
+// matches against it, and a SKILL.md that declares no `name` is skipped
+// outright. So a directory whose SKILL.md is missing, or names something else,
+// still yields an index entry nothing can resolve — the folder agreeing with
+// the manifest is not enough on its own.
+const frontmatterName = (text) => {
+  if (!text.startsWith("---")) {
+    return null;
+  }
+  const end = text.indexOf("\n---", 3);
+  if (end === -1) {
+    return null;
+  }
+  for (const line of text.slice(0, end).split("\n")) {
+    const match = /^name:[ \t]*(.*)$/.exec(line);
+    if (match !== null) {
+      return match[1].trim().replace(/^["']|["']$/g, "");
+    }
+  }
+  return null;
+};
+
+const misdeclared = [];
+for (const name of names) {
+  if (!directories.includes(name)) {
+    // Already reported above as an entry with no directory.
+    continue;
+  }
+  let text;
+  try {
+    text = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
+  } catch {
+    misdeclared.push(`skills/${name}/SKILL.md is missing`);
+    continue;
+  }
+  const declared = frontmatterName(text);
+  if (declared === null) {
+    misdeclared.push(`skills/${name}/SKILL.md declares no frontmatter \`name\``);
+  } else if (declared !== name) {
+    misdeclared.push(`skills/${name}/SKILL.md declares \`name: ${declared}\``);
+  }
+}
+
+if (misdeclared.length > 0) {
+  process.stderr.write(
+    `error: ${misdeclared.join(" / ")} — consumers match the frontmatter \`name\`, so it must equal both the directory and the manifest entry.\n`,
+  );
+  failed = true;
+}
+
 if (failed) {
   process.exit(1);
 }
 
 process.stdout.write(
-  `ok: skills/manifest.json matches all ${directories.length} skill directories.\n`,
+  `ok: skills/manifest.json matches all ${directories.length} skill directories, each with a SKILL.md naming itself.\n`,
 );
 process.exit(0);
