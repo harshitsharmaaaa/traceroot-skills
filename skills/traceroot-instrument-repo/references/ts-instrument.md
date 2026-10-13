@@ -121,10 +121,10 @@ For scripts/CLIs/serverless, flush before the process exits (never for long-runn
 
 ```typescript
 await runMyScript();
-await TraceRoot.shutdown(); // export all buffered spans before exit
+await TraceRoot.flush(); // export all buffered spans before exit
 ```
 
-> Verify the exact export before editing — the lifecycle method can vary by SDK version. Check the installed package's types/exports (e.g. inspect `node_modules/@traceroot-ai/traceroot`) and use what it provides (`TraceRoot.shutdown()` in current versions).
+> Use `flush()`, not `shutdown()`. `flush()` exports what is buffered and leaves tracing running; `shutdown()` tears the provider down and disables the global OpenTelemetry API, so in a reused serverless container later invocations lose spans — and spans started with `startSpan()` never recover.
 
 ## What to instrument
 

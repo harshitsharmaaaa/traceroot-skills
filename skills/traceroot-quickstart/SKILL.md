@@ -25,7 +25,7 @@ A minimal runnable demo (no external LLM calls) that confirms TraceRoot is wired
    - TypeScript/Node.js → `references/ts-quickstart.md`
 4. Run the script. It prints the trace id and flushes before exit.
 5. Verify: direct the user to the TraceRoot UI → Traces. The `quickstart.root` trace should appear within a few seconds — they can search by the printed trace id to find it immediately.
-6. If no trace appears: confirm `TRACEROOT_API_KEY` is loaded (in Python, import `traceroot` after `load_dotenv()`; in TypeScript, `import 'dotenv/config'` before the SDK import), confirm the flush call is present at the end (`traceroot.flush()` for Python / `await TraceRoot.shutdown()` for TypeScript), and for self-hosting confirm `TRACEROOT_HOST_URL` points at the right instance.
+6. If no trace appears: confirm `TRACEROOT_API_KEY` is loaded (in Python, import `traceroot` after `load_dotenv()`; in TypeScript, `import 'dotenv/config'` before the SDK import), confirm the flush call is present at the end (`traceroot.flush()` for Python / `await TraceRoot.flush()` for TypeScript), and for self-hosting confirm `TRACEROOT_HOST_URL` points at the right instance.
 
 ## References
 
