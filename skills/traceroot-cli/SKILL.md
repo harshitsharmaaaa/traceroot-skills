@@ -73,10 +73,12 @@ read those rather than guessing a flag name.
   user's own permission settings, and the grant expires at their next message. So the list is the
   boundary you hold yourself to, not one the harness holds for you. When the user wants something
   created, changed or deleted, name the command and let them run it.
-- **Write no files.** Two commands can. `traceroot sql --output <path>` writes the result to that
-  path and overwrites whatever is there, with no prompt and no `--force`; `traceroot sql --file
-  <path>` reads a query from any readable file and sends its contents to the API. Use neither —
-  print the result and let the user redirect it. `traceroot traces export` writes a directory and
-  `--force` clears a non-empty one, so leave that alone too.
+- **Don't read or write files.** Three flags make the CLI do one or the other, and the two
+  directions are different hazards. Writing: `traceroot sql --output <path>` writes the result to
+  that path and overwrites whatever is there, with no prompt and no `--force`; `traceroot traces
+  export` writes a directory, and `--force` clears a non-empty one. Reading: `traceroot sql --file
+  <path>` takes a query from any readable file and sends its contents to the API, so it leaks a
+  file rather than clobbering one. Use none of them — print the result and let the user redirect
+  it.
 - Verifying a trace you have just instrumented belongs to `traceroot-instrument-repo` and
   `traceroot-quickstart`. Don't repeat it here.
