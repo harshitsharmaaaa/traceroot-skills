@@ -112,18 +112,43 @@ if (undeclared.length > 0) {
 // outright. So a directory whose SKILL.md is missing, or names something else,
 // still yields an index entry nothing can resolve — the folder agreeing with
 // the manifest is not enough on its own.
+// The value is a YAML scalar: an unquoted one ends at a comment and a quoted
+// one at its closing quote, so `name: traceroot-eval # the consumer id` and
+// `name: "traceroot-eval"` both declare `traceroot-eval`. Comparing the rest
+// of the line verbatim instead fails this check on valid frontmatter.
+const scalar = (raw) => {
+  const value = raw.trim();
+  const quote = value.charAt(0);
+  if (quote === '"' || quote === "'") {
+    const close = value.indexOf(quote, 1);
+    return close === -1 ? value.slice(1).trim() : value.slice(1, close);
+  }
+  // `#` opens a comment only at the start of the value or after whitespace, so
+  // a name is still free to contain one.
+  const comment = /(?:^|[ \t])#/.exec(value);
+  return (comment === null ? value : value.slice(0, comment.index)).trim();
+};
+
 const frontmatterName = (text) => {
-  if (!text.startsWith("---")) {
+  const lines = text.split("\n");
+  // Frontmatter is delimited by `---` alone on a line. Accepting any line that
+  // merely begins with `---` reads a `name:` out of a document that declares
+  // no frontmatter at all, such as one opening on `---not-frontmatter`.
+  if (lines[0].trimEnd() !== "---") {
     return null;
   }
-  const end = text.indexOf("\n---", 3);
-  if (end === -1) {
+  const close = lines.findIndex((line, index) => index > 0 && line.trimEnd() === "---");
+  if (close === -1) {
     return null;
   }
-  for (const line of text.slice(0, end).split("\n")) {
-    const match = /^name:[ \t]*(.*)$/.exec(line);
+  for (const line of lines.slice(1, close)) {
+    // Matched against the trimmed line because `.` does not match a carriage
+    // return, so a CRLF checkout would otherwise read as declaring no name.
+    const match = /^name:[ \t]*(.*)$/.exec(line.trimEnd());
     if (match !== null) {
-      return match[1].trim().replace(/^["']|["']$/g, "");
+      // `name:` with nothing after it declares no name rather than an empty
+      // one, which reads as the missing declaration it is.
+      return scalar(match[1]) || null;
     }
   }
   return null;
