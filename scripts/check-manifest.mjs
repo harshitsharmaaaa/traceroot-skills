@@ -121,7 +121,14 @@ const scalar = (raw) => {
   const quote = value.charAt(0);
   if (quote === '"' || quote === "'") {
     const close = value.indexOf(quote, 1);
-    return close === -1 ? value.slice(1).trim() : value.slice(1, close);
+    // An unterminated quote is a YAML syntax error, and so is anything but a
+    // comment after the closing one. A parser fails on the whole document in
+    // both cases, so a consumer resolves no name at all — which is what this
+    // has to report rather than guessing at the contents.
+    if (close === -1 || !/^[ \t]*(?:#|$)/.test(value.slice(close + 1))) {
+      return "";
+    }
+    return value.slice(1, close);
   }
   // `#` opens a comment only at the start of the value or after whitespace, so
   // a name is still free to contain one.
@@ -169,7 +176,7 @@ for (const name of names) {
   }
   const declared = frontmatterName(text);
   if (declared === null) {
-    misdeclared.push(`skills/${name}/SKILL.md declares no frontmatter \`name\``);
+    misdeclared.push(`skills/${name}/SKILL.md declares no usable frontmatter \`name\``);
   } else if (declared !== name) {
     misdeclared.push(`skills/${name}/SKILL.md declares \`name: ${declared}\``);
   }
